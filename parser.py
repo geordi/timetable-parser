@@ -58,10 +58,14 @@ class Lecture:
         return parse_lecture(td)
 
 
-def print_schedule(sh):
+def print_schedule(hour_list, sh):
+    for hour in hour_list:
+        print(hour, end=' ')
     for day_no in sh:
-        for hour in sh[day_no]:
-            print(hour, end=' ')
+        for no, hour in enumerate(sh[day_no]):
+            l = len(hour_list[no])
+            s = ''.rjust(l//2) + hour + ''.ljust(l//2)
+            print(s, end=' ')
         print()
 
 
@@ -74,7 +78,7 @@ def main():
     args = parser.parse_args()
     print(args.filename)
 
-    hours_list = []
+    hour_list = []
 
     with open(args.filename[0], 'rb') as f:
         doc = html5lib.parse(f)
@@ -103,34 +107,24 @@ def main():
                                         max_day_len = max([ len(s) for s in DAYS])
                                         print(td.text + ''.rjust(max_day_len - len(text)) + ': ', end=' ')
                                     else:
-                                        hours_list.append(td.text)
+                                        hour_list.append(td.text)
                                         print(td.text, end=' ')
                                 # actual lecture
                                 elif cl == 'object-cell-border':
                                     #print('HODINA')
                                     hours, lecture = parse_lecture(td)
-                                    inner_col_no = col_no
                                     for i in range(hours):
-                                        if inner_col_no < 5:
-                                            sh[day_no].append('X'.rjust(5) + ''.ljust(4))
-                                        else:
-                                            sh[day_no].append('X'.rjust(7) + ''.ljust(6))
-                                        inner_col_no += 1
+                                        sh[day_no].append('X')
                                 else:
                                     # empty
-                                    if col_no < 5:
-                                        sh[day_no].append('O'.rjust(5) + ''.ljust(4))
-                                    else:
-                                        sh[day_no].append('O'.rjust(7) + ''.ljust(6))
+                                    sh[day_no].append('O')
                             else:
                                 print('       ')
                         print()
 
     print()
 
-    for hour in hours_list:
-        print(hour, end=' ')
-    print_schedule(sh)
+    print_schedule(hour_list, sh)
 
 
 if __name__ == '__main__':
