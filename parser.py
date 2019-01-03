@@ -20,9 +20,12 @@ def parse_lecture(td):
 
     tbody = table_lecture.find(TBODY)
     tr = tbody.find(TR)
-    td = tr.find(TD)
-    lecture_name = td.text
+    tds = tr.findall(TD)
+
+    lecture_name = tds[0].text
     print(lecture_name, end=' ')
+    lecture_date = tds[1].text
+    print(lecture_date, end=' ')
 
     table_room = tables[1]
     tbody = table_room.find(TBODY)
@@ -37,36 +40,49 @@ def parse_lecture(td):
     lecture_type = tds[0].text
     lecture_groups = tds[1].text
     lecture_recitation_exercise, lecture_no = lecture_type.split('/')
-    
-    lecture = Lecture(lecture_name, lecture_room, lecture_recitation_exercise, lecture_no, lecture_groups, hours)
+
+    lecture = Lecture(lecture_name, lecture_room, lecture_recitation_exercise, lecture_no, lecture_groups, hours, lecture_date)
 
     return hours, lecture
 
 
 class Lecture:
 
-    def __init__(self, name, room, lecture_type, lecture_no, study_group, hours):
+    def __init__(self, name, room, lecture_type, lecture_no, study_group, hours, date):
         self.name = name
         self.room = room
         self.lecture_type = lecture_type
         self.lecture_no = lecture_no
         self.study_group = study_group
         self.hours = hours
+        self.date = date
 
     @staticmethod
     def from_td(td):
         return parse_lecture(td)
 
 
+def reformat_hour(hour):
+    start, stop = hour.strip().split('-')
+    if len(start) < 5:
+        start = '0' + start
+    if len(stop) < 5:
+        stop = '0' + stop
+
+    return start + '-' + stop
+
 def print_schedule(hour_list, sh):
+    print(sh)
     for hour in hour_list:
+        hour = reformat_hour(hour)
         print(hour, end=' ')
     for day_no in sh:
-        for no, hour in enumerate(sh[day_no]):
-            l = len(hour_list[no])
-            s = ''.rjust(l//2) + hour + ''.ljust(l//2)
-            print(s, end=' ')
-        print()
+        if day_no < 5:
+            for no, hour in enumerate(sh[day_no]):
+                l = len(hour_list[no])
+                s = ''.rjust(l//2) + hour + ''.ljust(l//2)
+                print(s, end=' ')
+            print()
 
 
 def main():
@@ -74,17 +90,20 @@ def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('filename', metavar='filename', type=str, nargs='+',
                         help='filename with HTML timetable')
-    
+
     args = parser.parse_args()
-    print(args.filename)
+    #print(args.filename)
 
     hour_list = []
 
+    multirow = False
+    multirow_no = 0
+
     with open(args.filename[0], 'rb') as f:
         doc = html5lib.parse(f)
-        print(doc)
+        #print(doc)
         body = doc.find('{http://www.w3.org/1999/xhtml}body')
-        print(body)
+        #print(body)
         print()
         for e in body:
             if e.tag == '{http://www.w3.org/1999/xhtml}table':
@@ -93,6 +112,7 @@ def main():
                 cl = e.attrib['class']
                 if cl == 'grid-border-args':
                     tbody = e.find('{http://www.w3.org/1999/xhtml}tbody')
+                    # for each row in the table
                     for day_no, row in enumerate(tbody.findall('{http://www.w3.org/1999/xhtml}tr')):
                         #print(row)
                         # for each time slot
@@ -102,6 +122,13 @@ def main():
                             if 'class' in td.attrib:
                                 cl = td.attrib['class']
                                 if cl == 'col-label-one' or cl == 'row-label-one':
+                                    #print(td.attrib)
+                                    if 'rowspan' in td.attrib:
+                                        if td.attrib['rowspan'] != '1':
+                                            #print('Anomaly')
+                                            multirow = True
+                                        else:
+                                            multirow = False
                                     text = td.text if td.text else '       '
                                     if text in DAYS:
                                         max_day_len = max([ len(s) for s in DAYS])
@@ -114,13 +141,17 @@ def main():
                                     #print('HODINA')
                                     hours, lecture = parse_lecture(td)
                                     for i in range(hours):
-                                        sh[day_no].append('X')
+                                        #print('day_no= {}, multirow_no= {}'.format(day_no, multirow_no))
+                                        sh[day_no - multirow_no].append('X')
                                 else:
                                     # empty
-                                    sh[day_no].append('O')
+                                    #print('day_no= {}, multirow_no= {}'.format(day_no, multirow_no))
+                                    sh[day_no - multirow_no].append('O')
                             else:
                                 print('       ')
                         print()
+                        if multirow:
+                            multirow_no += 1
 
     print()
 
